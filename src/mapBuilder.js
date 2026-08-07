@@ -42,58 +42,68 @@ export class MapBuilder {
     };
   }
 
+  // 1. High-Quality Sky Dome (Guaranteed 100% WebGL Compatibility, No Shader Crash)
   createEnvironmentSkybox() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Dramatic sunset dusk gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#0c1626'); // Deep zenith blue
+    grad.addColorStop(0.45, '#1e2b40'); // Twilight
+    grad.addColorStop(0.75, '#c85a17'); // Fiery orange dusk
+    grad.addColorStop(0.95, '#d47b2c'); // Horizon glow
+    grad.addColorStop(1.0, '#101520'); // Ground fog line
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Distant stars in upper atmosphere
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 120; i++) {
+      const sx = Math.random() * 512;
+      const sy = Math.random() * 200;
+      ctx.fillRect(sx, sy, 1.5, 1.5);
+    }
+
+    const skyTex = new THREE.CanvasTexture(canvas);
     const skyGeo = new THREE.SphereGeometry(600, 32, 32);
-    const skyMat = new THREE.ShaderMaterial({
+    const skyMat = new THREE.MeshBasicMaterial({
+      map: skyTex,
       side: THREE.BackSide,
-      uniforms: {
-        topColor: { value: new THREE.Color(0x0a1020) },
-        bottomColor: { value: new THREE.Color(0xd46820) },
-        offset: { value: 33 },
-        exponent: { value: 0.6 }
-      },
-      vertexShader: `
-        varying vec3 vWorldPosition;
-        void main() {
-          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-          vWorldPosition = worldPosition.xyz;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 topColor;
-        uniform vec3 bottomColor;
-        uniform float offset;
-        uniform float exponent;
-        varying vec3 vWorldPosition;
-        void main() {
-          float h = normalize(vWorldPosition + offset).y;
-          gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
-        }
-      `
+      depthWrite: false
     });
     const sky = new THREE.Mesh(skyGeo, skyMat);
     this.scene.add(sky);
 
-    const mountainGeo = new THREE.CylinderGeometry(480, 520, 90, 32, 1, true);
-    const mountainMat = new THREE.MeshBasicMaterial({ color: 0x060810, side: THREE.BackSide });
+    // Distant mountain silhouette ring
+    const mountainGeo = new THREE.CylinderGeometry(480, 520, 80, 32, 1, true);
+    const mountainMat = new THREE.MeshBasicMaterial({
+      color: 0x080c14,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
     const mountains = new THREE.Mesh(mountainGeo, mountainMat);
-    mountains.position.y = 35;
+    mountains.position.y = 30;
     this.scene.add(mountains);
   }
 
+  // 2. High-Contrast Tactical Ground with Wet Asphalt
   createGround() {
     const asphaltData = textureGen.createTacticalAsphalt();
-    asphaltData.diffuse.repeat.set(24, 24);
-    asphaltData.normal.repeat.set(24, 24);
-    asphaltData.roughness.repeat.set(24, 24);
+    asphaltData.diffuse.repeat.set(16, 16);
+    asphaltData.normal.repeat.set(16, 16);
+    asphaltData.roughness.repeat.set(16, 16);
 
     const groundMat = new THREE.MeshStandardMaterial({
       map: asphaltData.diffuse,
       normalMap: asphaltData.normal,
       roughnessMap: asphaltData.roughness,
-      roughness: 0.8,
-      metalness: 0.15
+      roughness: 0.75,
+      metalness: 0.25,
+      color: new THREE.Color(0x707880) // High visibility, clear texture
     });
 
     const groundGeo = new THREE.PlaneGeometry(180, 180);
@@ -107,6 +117,7 @@ export class MapBuilder {
       new THREE.Vector3(90, 0, 90)
     ));
 
+    // Outer Perimeter Concrete Walls
     const concreteData = textureGen.createTacticalConcrete();
     concreteData.diffuse.repeat.set(8, 2);
     concreteData.normal.repeat.set(8, 2);
@@ -114,7 +125,8 @@ export class MapBuilder {
     const wallMat = new THREE.MeshStandardMaterial({
       map: concreteData.diffuse,
       normalMap: concreteData.normal,
-      roughness: 0.85
+      roughness: 0.8,
+      color: new THREE.Color(0x8a9098)
     });
 
     const wallHeight = 9;
@@ -136,6 +148,7 @@ export class MapBuilder {
     });
   }
 
+  // 3. Corrugated Military Containers
   createShippingContainers() {
     const containerLayouts = [
       { x: -18, z: -12, rot: 0.1, color: 'navy' },
@@ -182,12 +195,14 @@ export class MapBuilder {
     });
   }
 
+  // 4. Command Hub / 2-Story Building
   createCommandHub() {
     const concreteData = textureGen.createTacticalConcrete();
     const concreteMat = new THREE.MeshStandardMaterial({
       map: concreteData.diffuse,
       normalMap: concreteData.normal,
-      roughness: 0.75
+      roughness: 0.75,
+      color: new THREE.Color(0x9098a0)
     });
 
     const darkMetalData = textureGen.createWeaponCamoTexture('matte_black');
@@ -228,20 +243,19 @@ export class MapBuilder {
     this.colliders.push(new THREE.Box3().setFromObject(hubGroup));
   }
 
-  // Tactical Sniper Watchtowers with climbable vantage points
+  // 5. Sniper Watchtowers
   createSniperWatchtowers() {
     const towerPositions = [
       { x: 38, z: 38 },
       { x: -38, z: 38 }
     ];
 
-    const metalMat = new THREE.MeshStandardMaterial({ color: 0x22262a, metalness: 0.85, roughness: 0.3 });
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x333a42, metalness: 0.85, roughness: 0.3 });
 
     towerPositions.forEach(tp => {
       const towerGroup = new THREE.Group();
-      towerGroup.position.set(tp.x, 0, tp.y || tp.z);
+      towerGroup.position.set(tp.x, 0, tp.z);
 
-      // 4 Steel Legs
       for (let i = 0; i < 4; i++) {
         const legGeo = new THREE.CylinderGeometry(0.12, 0.12, 10, 8);
         const leg = new THREE.Mesh(legGeo, metalMat);
@@ -249,13 +263,11 @@ export class MapBuilder {
         towerGroup.add(leg);
       }
 
-      // Upper Sniper Platform
       const platGeo = new THREE.BoxGeometry(5.2, 0.4, 5.2);
       const plat = new THREE.Mesh(platGeo, metalMat);
       plat.position.set(0, 10, 0);
       towerGroup.add(plat);
 
-      // Railing
       const railGeo = new THREE.BoxGeometry(5.4, 1.1, 0.1);
       const rail = new THREE.Mesh(railGeo, metalMat);
       rail.position.set(0, 10.6, 2.6);
@@ -267,14 +279,14 @@ export class MapBuilder {
     });
   }
 
-  // Shatterable Glass Windows
+  // 6. Shatterable Glass Windows
   createShatterableGlassWindows() {
     const glassMat = new THREE.MeshPhysicalMaterial({
       color: 0x88ccff,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.45,
       roughness: 0.05,
-      transmission: 0.95
+      transmission: 0.9
     });
 
     const windowPositions = [
@@ -287,18 +299,15 @@ export class MapBuilder {
       const winMesh = new THREE.Mesh(winGeo, glassMat);
       winMesh.position.set(wp.x, wp.y, wp.z);
       winMesh.name = 'shatterable_glass';
-      winMesh.userData = {
-        isGlass: true,
-        health: 20,
-        shattered: false
-      };
+      winMesh.userData = { isGlass: true, health: 20, shattered: false };
       this.scene.add(winMesh);
       this.glassPanels.push(winMesh);
     });
   }
 
+  // 7. Subterranean Depot
   createUndergroundTunnel() {
-    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x181a1f, roughness: 0.6, metalness: 0.8 });
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x22262c, roughness: 0.6, metalness: 0.8 });
     const tunnelGroup = new THREE.Group();
     tunnelGroup.position.set(35, 0, 35);
 
@@ -316,7 +325,7 @@ export class MapBuilder {
     sirenMesh.position.set(0, 3.8, 0);
     tunnelGroup.add(sirenMesh);
 
-    const redLight = new THREE.PointLight(0xff1100, 2.5, 18, 2);
+    const redLight = new THREE.PointLight(0xff2200, 2.5, 18, 2);
     redLight.position.set(0, 3.5, 0);
     tunnelGroup.add(redLight);
 
@@ -324,13 +333,14 @@ export class MapBuilder {
     this.spawnPoints.push(new THREE.Vector3(35, 1.0, 35));
   }
 
+  // 8. Armored Vehicle
   createArmoredVehicle() {
     const vehGroup = new THREE.Group();
     vehGroup.position.set(8, 0, -4);
     vehGroup.rotation.y = -0.6;
 
-    const armorMat = new THREE.MeshStandardMaterial({ color: 0x3d433b, roughness: 0.5, metalness: 0.7 });
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.95 });
+    const armorMat = new THREE.MeshStandardMaterial({ color: 0x4a5246, roughness: 0.5, metalness: 0.7 });
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x181818, roughness: 0.95 });
 
     const hullGeo = new THREE.BoxGeometry(2.8, 1.4, 5.8);
     const hull = new THREE.Mesh(hullGeo, armorMat);
@@ -373,14 +383,16 @@ export class MapBuilder {
     this.colliders.push(new THREE.Box3().setFromObject(vehGroup));
   }
 
+  // 9. Barricades & Sandbags
   createBarricadesAndCover() {
     const concreteData = textureGen.createTacticalConcrete();
     const barrierMat = new THREE.MeshStandardMaterial({
       map: concreteData.diffuse,
       normalMap: concreteData.normal,
-      roughness: 0.8
+      roughness: 0.8,
+      color: new THREE.Color(0x9098a0)
     });
-    const sandbagMat = new THREE.MeshStandardMaterial({ color: 0x96825c, roughness: 0.95 });
+    const sandbagMat = new THREE.MeshStandardMaterial({ color: 0x9a845e, roughness: 0.95 });
 
     const barrierPositions = [
       { x: 0, z: 6, rot: 0 },
@@ -418,6 +430,7 @@ export class MapBuilder {
     });
   }
 
+  // 10. Shootable Red Explosive Barrels
   createExplosiveBarrels() {
     const barrelPositions = [
       { x: -6, z: -4 },
@@ -460,6 +473,7 @@ export class MapBuilder {
     });
   }
 
+  // 11. Shootable Wooden Crates
   createDestructibleCrates() {
     const cratePositions = [
       { x: -10, z: -6 },
@@ -487,31 +501,39 @@ export class MapBuilder {
     });
   }
 
+  // 12. Calibrated High-Visibility Lighting
   createTacticalLighting() {
-    const sunLight = new THREE.DirectionalLight(0xffeedd, 2.2);
+    // Balanced Sun Light (crisp shadows, no overexposure)
+    const sunLight = new THREE.DirectionalLight(0xfff0dd, 1.6);
     sunLight.position.set(45, 65, 35);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.mapSize.width = 1024;
+    sunLight.shadow.mapSize.height = 1024;
     sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 200;
+    sunLight.shadow.camera.far = 180;
     sunLight.shadow.camera.left = -60;
     sunLight.shadow.camera.right = 60;
     sunLight.shadow.camera.top = 60;
     sunLight.shadow.camera.bottom = -60;
-    sunLight.shadow.bias = -0.0004;
+    sunLight.shadow.bias = -0.0002;
     this.scene.add(sunLight);
 
-    const ambientLight = new THREE.AmbientLight(0x283850, 1.2);
+    // Warm Hemisphere Sky Light
+    const hemiLight = new THREE.HemisphereLight(0x5a7090, 0x222a35, 0.8);
+    this.scene.add(hemiLight);
+
+    // Ambient Fill Light
+    const ambientLight = new THREE.AmbientLight(0x35455a, 0.5);
     this.scene.add(ambientLight);
 
+    // Perimeter Floodlights
     const floodlightPositions = [
       { x: -40, y: 12, z: -40, target: { x: 0, y: 0, z: 0 } },
       { x: 40, y: 12, z: 40, target: { x: 0, y: 0, z: 0 } }
     ];
 
     floodlightPositions.forEach(fp => {
-      const spot = new THREE.SpotLight(0xfff5dd, 4.0, 80, Math.PI / 4, 0.4, 1.5);
+      const spot = new THREE.SpotLight(0xfffae8, 2.5, 80, Math.PI / 4, 0.4, 1.5);
       spot.position.set(fp.x, fp.y, fp.z);
       spot.target.position.set(fp.target.x, fp.target.y, fp.target.z);
       this.scene.add(spot);

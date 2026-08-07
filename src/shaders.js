@@ -1,5 +1,5 @@
 // AAA Ultra-High Performance Post-Processing & Custom GLSL Shaders
-// Fast, lightweight, zero GPU lag, calibrated tone mapping (never over-exposes or turns white)
+// Fast, lightweight, zero GPU lag, calibrated tone mapping (never over-exposes or turns black)
 import * as THREE from 'three';
 
 export class PostProcessingPipeline {
@@ -22,7 +22,7 @@ export class PostProcessingPipeline {
     };
 
     this.sceneTarget = new THREE.WebGLRenderTarget(width, height, pars);
-    this.orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    this.orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
     this.quadScene = new THREE.Scene();
 
     this.compositeMaterial = new THREE.ShaderMaterial({
@@ -38,7 +38,7 @@ export class PostProcessingPipeline {
         varying vec2 vUv;
         void main() {
           vUv = uv;
-          gl_Position = vec4(position, 1.0);
+          gl_Position = vec4(position.xy, 0.0, 1.0);
         }
       `,
       fragmentShader: `
@@ -118,6 +118,7 @@ export class PostProcessingPipeline {
     });
 
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.compositeMaterial);
+    quad.frustumCulled = false;
     this.quadScene.add(quad);
   }
 
